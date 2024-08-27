@@ -3,6 +3,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const http = require('http');
+const { WebSocketServer } = require('ws');
 const connectDB = require('./db/mongooseConnect');
 const registerUser = require('./db/registerUser');
 const loginUser = require('./db/loginUser');
@@ -18,10 +20,11 @@ const JWT_EXPIRES_IN = '1d';
 
 const main = async () => {
   await connectDB();
-  app.listen(
-    port,
-    console.log(`Listening on port http://192.168.100.202:${port}`)
-  );
+  const server = app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+  });
+  const wss = new WebSocketServer({ server });
+  handleQuickMatch(wss);
 };
 
 app.post('/register', async (req, res) => {
@@ -440,7 +443,7 @@ app.get('/updatePassword', async (req, res) => {
         token,
       });
     } catch (error) {
-      console.log(error)
+      console.log(error);
       return res
         .status(400)
         .json({ approved: false, msg: 'An error occured', index: 0 });
@@ -449,3 +452,151 @@ app.get('/updatePassword', async (req, res) => {
 });
 
 main();
+
+function handleQuickMatch(wss) {
+  let waitingClients = [];
+  const rooms = {};
+
+  wss.on('connection', (ws) => {
+    ws.on('message', (message) => {
+      const data = JSON.parse(message);
+      if (data.type === 'join') {
+        const username = data.username;
+        ws.username = username;
+
+        if (waitingClients.length > 0) {
+          const otherClient = waitingClients.pop();
+          const roomId = Date.now();
+          const room = [otherClient, ws];
+          rooms[roomId] = room;
+
+          const displayNames = {
+            first: room[0].username,
+            second: room[1].username,
+          };
+
+          const joinOrder = {
+            first: room[0],
+            second: room[1],
+          };
+
+          otherClient.send(
+            JSON.stringify({
+              type: 'room',
+              roomId,
+              message: 'You have joined a room',
+              joinOrder: true,
+              opponent: displayNames.second,
+            })
+          );
+          ws.send(
+            JSON.stringify({
+              type: 'room',
+              roomId,
+              message: 'You have joined a room',
+              joinOrder: false,
+              opponent: displayNames.first,
+            })
+          );
+        } else {
+          waitingClients.push(ws);
+          ws.send(
+            JSON.stringify({
+              type: 'waiting',
+              message: 'Waiting for another player...',
+            })
+          );
+        }
+      } else if (data.type === 'message' && data.roomId) {
+        const room = rooms[data.roomId];
+        if (room) {
+          room.forEach((client) => {
+            if (client !== ws) {
+              client.send(
+                JSON.stringify({ type: 'message', message: data.message })
+              );
+            }
+          });
+        }
+      } else if (data.type === 'exit') {
+        const { roomId } = data;
+        if (rooms[roomId]) {
+          rooms[roomId] = rooms[roomId].filter((client) => client !== ws);
+          if (rooms[roomId].length === 0) {
+            delete rooms[roomId];
+            console.log(`Room ${roomId} deleted because it is empty.`);
+          }
+        }
+      } else if (data.type === 'startField') {
+        wss.clients.forEach((client) => {
+          client.send(JSON.stringify({ type: 'startField', el: data.el }));
+        });
+      } else if (data.type === 'field') {
+        wss.clients.forEach((client) => {
+          client.send(
+            JSON.stringify({
+              type: 'field',
+              field: data.field,
+            })
+          );
+        });
+      }
+    });
+
+    ws.on('close', () => {
+      const waitingIndex = waitingClients.indexOf(ws);
+      if (waitingIndex !== -1) {
+        waitingClients.splice(waitingIndex, 1);
+      }
+
+      for (const roomId in rooms) {
+        const room = rooms[roomId];
+        const index = room.indexOf(ws);
+        if (index !== -1) {
+          room.splice(index, 1);
+
+          if (room.length === 1) {
+            room[0].send(
+              JSON.stringify({
+                type: 'disconnected',
+                message: 'disconnected',
+              })
+            );
+          }
+
+          if (room.length === 0) {
+            delete rooms[roomId];
+          }
+        }
+      }
+    });
+  });
+}
+
+app.get('/updatemn', (req, res) => {
+  const { token } = req.query;
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
+    const user = await User.findOne({ email: decoded.email });
+    const matchesPlayer = user.played + 1;
+    const totalXp = user.totalxp + 20;
+    user.played = matchesPlayer;
+    user.totalxp = totalXp;
+    await user.save();
+    const updatedUser = await User.findOne({ email: decoded.email });
+    return res.status(200).json({ user: updatedUser });
+  });
+});
+
+app.get('/updatewn', (req, res) => {
+  const { token } = req.query;
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
+    const user = await User.findOne({ email: decoded.email });
+    const matchesPlayer = user.wins + 1;
+    const totalXp = user.totalxp + 75;
+    user.wins = matchesPlayer;
+    user.totalxp = totalXp;
+    await user.save();
+    const updatedUser = await User.findOne({ email: decoded.email });
+    return res.status(200).json({ user: updatedUser });
+  });
+});

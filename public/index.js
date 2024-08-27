@@ -9,8 +9,22 @@ document.addEventListener('DOMContentLoaded', () => {
   localStorage.getItem('lock_zoom') === null &&
     localStorage.setItem('lock_zoom', false);
 
+  localStorage.getItem('sfx') === null && localStorage.setItem('sfx', true);
+
+  localStorage.getItem('music') === null && localStorage.setItem('music', true);
+
   addListeners();
 });
+
+document.addEventListener('click', checkBgSound);
+
+function checkBgSound() {
+  if (!bgSound) {
+    playSound('bg');
+    document.removeEventListener('click', checkBgSound);
+    bgSound = true;
+  }
+}
 
 function addListeners() {
   let authPageState = true;
@@ -211,6 +225,7 @@ function addListeners() {
         }, 300);
       }
       if (el.getAttribute('tab-active') == 'settings') {
+        importSettings();
         Style(Get('#app'), {
           transform: 'translateX(-100%)',
         });
@@ -363,6 +378,13 @@ function addListeners() {
   Array.from(GetAll('.checkbox-input')).map((el) => {
     el.addEventListener('input', () => {
       localStorage.setItem(`${el.getAttribute('storedAs')}`, el.checked);
+      if (el.getAttribute('storedAs') == 'music') {
+        if (el.checked) {
+          newaudioElement.muted = false;
+        } else {
+          newaudioElement.muted = true;
+        }
+      }
     });
   });
 
@@ -682,6 +704,10 @@ function addListeners() {
     startGame('ltm');
   });
 
+  event.click(Get('.quickmatch'), () => {
+    startQuickmatchQueue();
+  });
+
   event.click(Get('.leaveGame'), () => {
     criticalAlert('Do you want to leave the game?')
       .then(() => {
@@ -728,9 +754,7 @@ function addListeners() {
               Style(Get('.wrapper-latest-played'), {
                 transform: 'translateY(0)',
               });
-              Style(Get('.board'), {
-                transformOrigin: '',
-              });
+              Get('.board').setAttribute('allowZoom', 'false');
               if (Get('.activeField') !== null) {
                 Get('.activeField').classList.remove('activeField');
               }
@@ -761,8 +785,59 @@ function addListeners() {
             }, 300);
           }, 500);
         }, 300);
+        try {
+          wsocket.close();
+          Get('.status-wrapper').querySelector(
+            '.innerWrapper'
+          ).innerHTML = `<p style="opacity: 0;">0</p>`;
+          Style(Get('.status-wrapper').querySelector('.innerWrapper'), {
+            transform: 'translateY(0)',
+          });
+          tqms = 0;
+          joiningInProcess = false;
+        } catch (e) {}
       })
       .catch((e) => {});
+  });
+
+  event.click(Get('.guide'), () => {
+    Style(Get('#guideTab'), {
+      display: 'flex',
+    });
+    setTimeout(() => {
+      Style(Get('#guideTab'), {
+        opacity: '1',
+      });
+      setTimeout(() => {
+        Style(Get('.exitGuide'), {
+          opacity: '.65',
+          transform: 'scale(.85) translateY(0)',
+        });
+        setTimeout(() => {
+          Style(Get('.video'), {
+            opacity: '1',
+          });
+        }, 200);
+      }, 500);
+    }, 10);
+  });
+
+  event.click(Get('.exitGuide'), () => {
+    Style(Get('#guideTab'), {
+      opacity: '0',
+    });
+    setTimeout(() => {
+      Style(Get('#guideTab'), {
+        display: 'none',
+      });
+      Style(Get('.exitGuide'), {
+        opacity: '0',
+        transform: 'scale(.85) translateY(1.5rem)',
+      });
+      Style(Get('.video'), {
+        opacity: '0',
+      });
+    }, 400);
   });
 }
 
@@ -1372,6 +1447,7 @@ async function registerUser(btn) {
   }, 1500);
 }
 
+let bgSound = false;
 async function renderApp() {
   const response = await fetch(
     `/userData?email=${localStorage.getItem('email')}`
@@ -1398,6 +1474,7 @@ async function renderApp() {
 
   setTimeout(() => {
     const timeOut = 80;
+
     Style(Get('.greet'), {
       transform: 'translateY(0)',
       opacity: '1',
@@ -1449,12 +1526,12 @@ async function renderApp() {
                 });
               }, 750);
               setTimeout(() => {
-                Style(Get('.news'), {
+                Style(Get('.friends'), {
                   transform: 'translateX(0)',
                   opacity: '1',
                 });
                 setTimeout(() => {
-                  Style(Get('.news'), {
+                  Style(Get('.friends'), {
                     transform: '',
                   });
                 }, 750);
@@ -1497,7 +1574,43 @@ async function renderApp() {
         }, timeOut);
       }, timeOut);
     }, timeOut);
+    try {
+      playSound('bg');
+      bgSound = true;
+    } catch (err) {}
   }, 300);
+}
+
+let newaudioElement;
+function playSound(sound) {
+  const sounds = {
+    win: './assets/sfx/win.mp3',
+    lose: './assets/sfx/lose.mp3',
+    capture: './assets/sfx/field-capture.mp3',
+    bg: './assets/sfx/bg-sound.mp3',
+  };
+  let audioElement = new Audio();
+  audioElement.src = sounds[sound];
+  if (sound == 'bg') {
+    newaudioElement = new Audio();
+    newaudioElement.src = sounds[sound];
+    newaudioElement.loop = true;
+    try {
+      if (!bgSound) {
+        bgSound = true;
+        newaudioElement.play().catch((err) => {
+          bgSound = false;
+        });
+      }
+    } catch (e) {}
+    if (localStorage.getItem('music') == 'false') {
+      newaudioElement.muted = true;
+    }
+  } else {
+    if (localStorage.getItem('sfx') == 'true') {
+      audioElement.play();
+    }
+  }
 }
 
 function importSettings() {
@@ -1954,10 +2067,10 @@ const fieldMap = {
 const modes = {
   algo: 'Algo Gen. II',
   ai: 'AI Superb',
-  ltm: 'ltm bot',
+  ltm: 'LTM Algo',
 };
 
-// startGame('algo');
+let cim;
 
 async function startGame(mode) {
   await responsesWait.show();
@@ -1969,6 +2082,7 @@ async function startGame(mode) {
     await loadGame();
     window.latestPos = '';
     window.transformIndex = 0;
+    cim = mode;
     await sessionStorage.setItem(
       'position',
       JSON.stringify([
@@ -2027,7 +2141,7 @@ async function startGame(mode) {
               updateOrigin(origins[pos].x, origins[pos].y);
               board.setAttribute('allowZoom', true);
               zoomBoard();
-              GetAll('.field')[Number(pos) - 1].classList.toggle('activeField');
+              GetAll('.field')[Number(pos) - 1].classList.add('activeField');
               disableFieldClick();
               window.playerMove = true;
               runFieldPlay();
@@ -2133,7 +2247,12 @@ function runFieldPlay() {
               fieldMap.y[index]
             }`;
             updateLastesPosition();
-            element.innerHTML = `<img src="./assets/x.svg" />`;
+            if (cim == 'algo' || cim == 'ai') {
+              element.innerHTML = `<img src="./assets/x.svg" />`;
+            }
+            if (cim == 'ltm') {
+              element.innerHTML = `<img style="width: 1.1rem; filter: brightness(0.5);" src="./assets/blind-eye.svg" />`;
+            }
             setTimeout(() => {
               if (element.querySelector('img') !== null) {
                 Style(element.querySelector('img'), {
@@ -2174,6 +2293,7 @@ function runFieldPlay() {
                 } else {
                   zoomBoard({ unzoom: true, zoom: false });
                   endGame('You won the match');
+                  playSound('win');
                 }
               }, 200);
             }, 450);
@@ -2187,26 +2307,100 @@ function runFieldPlay() {
       }
     );
   } else {
-    function runBot() {
-      let positions = JSON.parse(sessionStorage.getItem('position'));
-      let genP = Math.floor(Math.random() * 9) + 1;
+    async function runBot() {
+      let positions = await JSON.parse(sessionStorage.getItem('position'));
+      let genP;
+      if (cim == 'algo') {
+        genP = (await Math.floor(Math.random() * 9)) + 1;
+      }
+      if (cim == 'ai' || cim == 'ltm') {
+        const winCombs = [
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+          [1, 4, 7],
+          [2, 5, 8],
+          [3, 6, 9],
+          [1, 5, 9],
+          [3, 5, 7],
+        ];
+
+        let cmb = '';
+
+        function findWinningMove(board, botSymbol) {
+          for (let combo of winCombs) {
+            const [a, b, c] = combo;
+            const values = [board[a], board[b], board[c]];
+            if (
+              values.filter((value) => value === botSymbol).length === 2 &&
+              values.includes('')
+            ) {
+              const emptyIndex = values.indexOf('');
+              cmb = combo[emptyIndex];
+              break;
+            }
+          }
+          return;
+        }
+
+        function findCriticalMove(board, currentSymbol) {
+          for (let combo of winCombs) {
+            const [a, b, c] = combo;
+            const values = [board[a], board[b], board[c]];
+            if (
+              values.filter((value) => value === currentSymbol).length === 2 &&
+              values.includes('')
+            ) {
+              const emptyIndex = values.indexOf('');
+              cmb = combo[emptyIndex];
+              return;
+            }
+          }
+          return;
+        }
+
+        await findWinningMove(
+          positions[`${Number(Get('.activeField').getAttribute('pos')) - 1}`],
+          'O'
+        );
+        if (cmb != '') {
+          genP = cmb;
+        } else {
+          await findCriticalMove(
+            positions[`${Number(Get('.activeField').getAttribute('pos')) - 1}`],
+            'X'
+          );
+          if (cmb != '') {
+            genP = cmb;
+          } else {
+            genP = (await Math.floor(Math.random() * 9)) + 1;
+          }
+        }
+      }
       if (
         positions[`${Number(Get('.activeField').getAttribute('pos')) - 1}`][
           `${genP}`
         ] == ''
       ) {
-        vibrateOnTouch(50);
+        await vibrateOnTouch(50);
         positions[`${Number(Get('.activeField').getAttribute('pos')) - 1}`][
           `${genP}`
         ] = 'O';
         window.latestPos = `${fieldMap.x[Number(genP - 1)]}${
           fieldMap.y[genP - 1]
         }`;
-        updateLastesPosition();
-        Get('.activeField').querySelectorAll('.pos')[
-          genP - 1
-        ].innerHTML = `<img src="./assets/o.svg" />`;
-        setTimeout(() => {
+        await updateLastesPosition();
+        if (cim == 'algo' || cim == 'ai') {
+          Get('.activeField').querySelectorAll('.pos')[
+            genP - 1
+          ].innerHTML = `<img src="./assets/o.svg" />`;
+        }
+        if (cim == 'ltm') {
+          Get('.activeField').querySelectorAll('.pos')[
+            genP - 1
+          ].innerHTML = `<img style="width: 1.1rem; filter: brightness(0.5);" src="./assets/blind-eye.svg" />`;
+        }
+        await setTimeout(() => {
           if (
             Get('.activeField')
               .querySelectorAll('.pos')
@@ -2241,7 +2435,14 @@ function runFieldPlay() {
               runFieldPlay();
             } else {
               zoomBoard({ unzoom: true, zoom: false });
-              endGame('Bot won this time');
+              if (cim == 'algo') {
+                endGame('Bot won this time');
+                playSound('lose');
+              }
+              if (cim == 'ai') {
+                endGame('AI won this time');
+                playSound('lose');
+              }
             }
           }, 200);
         }, 450);
@@ -2282,9 +2483,12 @@ function endGame(msg) {
     webkitBackdropFilter: 'blur(5px)',
     gap: '1rem',
   });
+
   wrapper.classList.add('endGameInfo');
   wrapper.innerHTML = `
-    <h1 style="color: #fff; font-weight: 600; font-size: 1.75rem; text-align: center;">${msg}</h1>
+    <h1 style="color: #fff; font-weight: 600; font-size: 1.3rem; text-align: center; width: 80%; line-height: 1.6rem; opacity: .7;">${
+      msg == 'disconnected' ? `${window.opponent} has left the game` : msg
+    }</h1>
   `;
   const exitBtn = Create('div');
   exitBtn.innerHTML = `
@@ -2350,6 +2554,13 @@ function endGame(msg) {
         Style(Get('.board'), {
           transformOrigin: '',
         });
+        Get('.status-wrapper').querySelector(
+          '.innerWrapper'
+        ).innerHTML = `<p style="opacity: 0;">0</p>`;
+        Style(Get('.status-wrapper').querySelector('.innerWrapper'), {
+          transform: 'translateY(0)',
+        });
+        tqms = 0;
         Get('.endGameInfo').remove();
         if (Get('.activeField') !== null) {
           Get('.activeField').classList.remove('activeField');
@@ -2388,6 +2599,11 @@ function endGame(msg) {
       opacity: '1',
     });
   }, 10);
+  try {
+    wsocket.close();
+    joiningInProcess = false;
+    wsocket = null;
+  } catch (e) {}
 }
 
 function checkWin() {
@@ -2601,4 +2817,437 @@ function inGameAlert(msg, timeOut = 1500) {
       }, 300);
     }, timeOut);
   }, 100);
+}
+
+let wsocket;
+let roomId = null;
+let tqms = 0;
+let joiningInProcess = false;
+function startQuickmatchQueue() {
+  Style(Get('.quickmatchQueueTab'), {
+    display: 'flex',
+  });
+  setTimeout(() => {
+    Style(Get('.quickmatchQueueTab'), {
+      opacity: '1',
+    });
+    setTimeout(() => {
+      quickmatchUpdateStatus('Waiting in queue...');
+      setTimeout(async () => {
+        quickmatchUpdateStatus('Searching for room...');
+        setTimeout(async () => {
+          wsocket = await new WebSocket(`ws://${window.location.host}`);
+          wsocket.onopen = () => {
+            wsocket.send(
+              JSON.stringify({
+                type: 'join',
+                username: window.user.displayName,
+              })
+            );
+          };
+
+          // wsocket.onclose = () => {
+          //   // alert('Connection closed. Please refresh the page to reconnect.');
+          //   // window.location.reload();
+          // };
+
+          wsocket.onerror = (error) => {
+            inGameAlert('WebSocket Error');
+          };
+
+          wsocket.onmessage = (evnt) => {
+            const data = JSON.parse(evnt.data);
+            if (data.type === 'waiting') {
+              quickmatchUpdateStatus('Creating room...');
+              setTimeout(() => {
+                if (joiningInProcess) return;
+                quickmatchUpdateStatus(data.message);
+                Style(Get('.exitQueue'), {
+                  backgroundColor: '#BDFE00',
+                  boxShadow: '0 0 10px #befe0079',
+                });
+
+                event.click(Get('.exitQueue'), () => {
+                  wsocket.send(JSON.stringify({ type: 'exit', roomId }));
+                  wsocket.close();
+                  quickmatchUpdateStatus('Canceling quickmatch...');
+                  Get('.exitQueue').replaceWith(
+                    Get('.exitQueue').cloneNode(true)
+                  );
+                  Style(Get('.exitQueue'), {
+                    backgroundColor: '#2f2f2f',
+                    boxShadow: '0 0 0 transparent',
+                  });
+                  setTimeout(() => {
+                    Style(Get('.quickmatchQueueTab'), {
+                      opacity: '0',
+                    });
+                    setTimeout(() => {
+                      Style(Get('.quickmatchQueueTab'), {
+                        display: 'none',
+                      });
+                      Get('.status-wrapper').querySelector(
+                        '.innerWrapper'
+                      ).innerHTML = `<p style="opacity: 0;">0</p>`;
+                      Style(
+                        Get('.status-wrapper').querySelector('.innerWrapper'),
+                        {
+                          transform: 'translateY(0)',
+                        }
+                      );
+                      tqms = 0;
+                    }, 400);
+                  }, 1000);
+                });
+              }, 1500);
+            } else if (data.type === 'room') {
+              roomId = data.roomId;
+              joiningInProcess = true;
+
+              const joinOrderMessage = data.joinOrder;
+              const opponentDN = data.opponent;
+              setTimeout(() => {
+                Get('.exitQueue').replaceWith(
+                  Get('.exitQueue').cloneNode(true)
+                );
+                setTimeout(() => {
+                  Style(Get('.exitQueue'), {
+                    backgroundColor: '#2f2f2f',
+                    boxShadow: '0 0 0 transparent',
+                  });
+                  quickmatchUpdateStatus('Joining game...');
+                  fetch(`/updatemn?token=${localStorage.getItem('token')}`)
+                    .then((res) => res.json())
+                    .then((data) => {
+                      window.user = data.user;
+                    });
+                  setTimeout(() => {
+                    Style(Get('.quickmatchQueueTab'), {
+                      opacity: '0',
+                    });
+                    setTimeout(() => {
+                      Style(Get('.quickmatchQueueTab'), {
+                        display: 'none',
+                      });
+                      responsesWait.show();
+                      setTimeout(() => {
+                        startQuickMatch(joinOrderMessage, opponentDN);
+                      }, 1500);
+                    }, 500);
+                  }, 1000);
+                }, 10);
+              }, 500);
+            } else if (data.type === 'disconnected') {
+              joiningInProcess = false;
+              endGame(data.message);
+            } else if (data.type === 'roomDeleted') {
+              alert('The room has been deleted.');
+              joiningInProcess = false;
+            }
+          };
+        }, 1500);
+      }, 1500);
+    }, 500);
+  }, 10);
+}
+
+function quickmatchUpdateStatus(message) {
+  tqms++;
+  const p = Create('p');
+  p.innerText = message;
+  Append(p, Get('.status-wrapper').querySelector('.innerWrapper'));
+  Style(Get('.status-wrapper').querySelector('.innerWrapper'), {
+    transform: `translateY(-${tqms * 1.5}rem)`,
+  });
+}
+
+function startQuickMatch(startPlayer, opponentDN) {
+  responsesWait.hide();
+  window.opponent = opponentDN;
+  window.playerSign = startPlayer;
+  startGameWS(startPlayer);
+}
+
+async function startGameWS(startPlayer) {
+  setTimeout(async () => {
+    Get('.clock').innerText = `${getCurrentTime()}`;
+    Get('.player').querySelector('p').innerText = window.user.displayName;
+    Get('.opponent').querySelector('p').innerText = window.opponent;
+    await loadGame();
+    window.latestPos = '';
+    window.transformIndex = 0;
+    await sessionStorage.setItem(
+      'position',
+      JSON.stringify([
+        { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' },
+        { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' },
+        { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' },
+        { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' },
+        { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' },
+        { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' },
+        { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' },
+        { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' },
+        { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '', 8: '', 9: '' },
+      ])
+    );
+    await sessionStorage.setItem(
+      'main_position',
+      JSON.stringify({
+        1: '',
+        2: '',
+        3: '',
+        4: '',
+        5: '',
+        6: '',
+        7: '',
+        8: '',
+        9: '',
+      })
+    );
+    setTimeout(() => {
+      inGameAlert('Choose field to start.', 1500);
+      setTimeout(() => {
+        inGameAlert(
+          `${startPlayer ? 'You are' : `${window.opponent} is`} on the spot.`,
+          1500
+        );
+        setTimeout(() => {
+          vibrateOnTouch(250);
+        }, 1700);
+        setTimeout(() => {
+          if (startPlayer) {
+            Get('.player').classList.add('active-turn');
+          } else {
+            Get('.opponent').classList.add('active-turn');
+          }
+          setTimeout(() => {
+            for (let field of GetAll('.field')) {
+              function handleClick() {
+                mapElsStart(field);
+                window.latestPos = `${
+                  fieldMap.x[Number(field.getAttribute('pos')) - 1]
+                }${fieldMap.y[Number(field.getAttribute('pos')) - 1]}`;
+                updateLastesPosition();
+                field.removeEventListener('click', handleClick);
+                wsocket.send(
+                  JSON.stringify({
+                    type: 'startField',
+                    el: field.outerHTML,
+                  })
+                );
+              }
+
+              if (startPlayer) {
+                field.addEventListener('click', handleClick);
+              }
+            }
+
+            if (!startPlayer) {
+              wsocket.addEventListener('message', (evnt) => {
+                const data = JSON.parse(evnt.data);
+                if (data.type === 'startField') {
+                  const div = Create('div');
+                  div.innerHTML = data.el;
+                  const field = div.querySelector('.field');
+                  mapElsStart(field);
+                  window.latestPos = `${
+                    fieldMap.x[Number(field.getAttribute('pos')) - 1]
+                  }${fieldMap.y[Number(field.getAttribute('pos')) - 1]}`;
+                  updateLastesPosition();
+                }
+              });
+            }
+
+            function mapElsStart(el) {
+              window.zoomed = false;
+              const board = Get('.board');
+              const pos = el.getAttribute('pos');
+              updateOrigin(origins[pos].x, origins[pos].y);
+              board.setAttribute('allowZoom', true);
+              zoomBoard();
+              GetAll('.field')[Number(pos) - 1].classList.add('activeField');
+              if (startPlayer) {
+                disableFieldClick();
+              }
+              window.playerMove = startPlayer;
+              // window.playerSign = startPlayer ? 'X' : 'O';
+              window.playerSign = {
+                user: startPlayer ? 'X' : 'O',
+                opponent: startPlayer ? 'O' : 'X',
+              };
+              runFieldPlayWS();
+            }
+
+            function disableFieldClick() {
+              for (let field of GetAll('.field')) {
+                field.replaceWith(field.cloneNode(true));
+              }
+            }
+          }, 300);
+        }, 1500);
+      }, 2000);
+    }, 1500);
+    setInterval(() => {
+      Get('.clock').innerText = `${getCurrentTime()}`;
+    }, 5000);
+  }, 100);
+}
+
+function runFieldPlayWS() {
+  if (window.playerMove) {
+    Array.from(Get('.activeField').querySelectorAll('.pos')).map(
+      (element, index) => {
+        event.click(element, () => {
+          let positions = JSON.parse(sessionStorage.getItem('position'));
+          if (
+            positions[`${Number(Get('.activeField').getAttribute('pos')) - 1}`][
+              `${index + 1}`
+            ] == ''
+          ) {
+            wsocket.send(
+              JSON.stringify({
+                type: 'field',
+                field: element.outerHTML,
+              })
+            );
+            vibrateOnTouch(50);
+            positions[`${Number(Get('.activeField').getAttribute('pos')) - 1}`][
+              `${index + 1}`
+            ] = window.playerSign.user;
+            window.latestPos = `${fieldMap.x[Number(index)]}${
+              fieldMap.y[index]
+            }`;
+            updateLastesPosition();
+            element.innerHTML = `<img src="./assets/${window.playerSign.user.toLowerCase()}.svg" />`;
+            setTimeout(() => {
+              if (element.querySelector('img') !== null) {
+                Style(element.querySelector('img'), {
+                  transform: 'scale(1)',
+                  opacity: '1',
+                });
+              }
+            }, 100);
+            sessionStorage.setItem('position', JSON.stringify(positions));
+            checkFieldSign();
+            window.playerMove = false;
+            setTimeout(() => {
+              Array.from(Get('.activeField').querySelectorAll('.pos')).map(
+                (el) => {
+                  const clonedElement = el.cloneNode(true);
+                  el.parentNode.replaceChild(clonedElement, el);
+                }
+              );
+            }, 300);
+            if (window.zoomed) {
+              zoomBoard({ unzoom: true, zoom: false });
+              if (Get('.activeZoom') !== null) {
+                Get('.activeZoom').classList.remove('activeZoom');
+              }
+            }
+            setTimeout(() => {
+              Get('.activeField').classList.remove('activeField');
+              setTimeout(() => {
+                updateOrigin(origins[index + 1].x, origins[index + 1].y);
+                if (!checkWin()) {
+                  zoomBoard({ unzoom: false, zoom: true });
+                  GetAll('.field')[index].classList.add('activeField');
+                  Get('.active-turn').classList.remove('active-turn');
+                  setTimeout(() => {
+                    Get('.opponent').classList.add('active-turn');
+                  }, 250);
+                  runFieldPlayWS();
+                } else {
+                  zoomBoard({ unzoom: true, zoom: false });
+                  endGame('You won the match');
+                  playSound('win');
+                  fetch(`/updatewn?token=${localStorage.getItem('token')}`)
+                    .then((res) => res.json())
+                    .then((data) => {
+                      window.user = data.user;
+                    });
+                }
+              }, 200);
+            }, 450);
+          } else {
+            vibrateOnTouch(25);
+            setTimeout(() => {
+              vibrateOnTouch(25);
+            }, 75);
+          }
+        });
+      }
+    );
+  } else {
+    wsocket.addEventListener('message', socketListener);
+
+    async function socketListener(evnt) {
+      wsocket.removeEventListener('message', socketListener);
+      const data = JSON.parse(evnt.data);
+      if (data.type === 'field') {
+        const div = Create('div');
+        div.innerHTML = data.field;
+        const field = div.querySelector('.pos');
+
+        let positions = await JSON.parse(sessionStorage.getItem('position'));
+        let genP = Number(field.getAttribute('index'));
+        if (
+          positions[`${Number(Get('.activeField').getAttribute('pos')) - 1}`][
+            `${genP}`
+          ] == ''
+        ) {
+          await vibrateOnTouch(50);
+          positions[`${Number(Get('.activeField').getAttribute('pos')) - 1}`][
+            `${genP}`
+          ] = window.playerSign.opponent;
+          window.latestPos = `${fieldMap.x[Number(genP - 1)]}${
+            fieldMap.y[genP - 1]
+          }`;
+          await updateLastesPosition();
+          Get('.activeField').querySelectorAll('.pos')[
+            genP - 1
+          ].innerHTML = `<img src="./assets/${window.playerSign.opponent.toLowerCase()}.svg" />`;
+          await setTimeout(() => {
+            if (
+              Get('.activeField')
+                .querySelectorAll('.pos')
+                [genP - 1].querySelector('img') !== null
+            ) {
+              Style(
+                Get('.activeField')
+                  .querySelectorAll('.pos')
+                  [genP - 1].querySelector('img'),
+                {
+                  transform: 'scale(1)',
+                  opacity: '1',
+                }
+              );
+            }
+          }, 100);
+          sessionStorage.setItem('position', JSON.stringify(positions));
+          checkFieldSign();
+          window.playerMove = true;
+          zoomBoard({ unzoom: true, zoom: false });
+          setTimeout(() => {
+            Get('.activeField').classList.remove('activeField');
+            setTimeout(() => {
+              updateOrigin(origins[genP].x, origins[genP].y);
+              if (!checkWin()) {
+                zoomBoard({ unzoom: false, zoom: true });
+                GetAll('.field')[genP - 1].classList.add('activeField');
+                Get('.active-turn').classList.remove('active-turn');
+                setTimeout(() => {
+                  Get('.player').classList.add('active-turn');
+                }, 250);
+                runFieldPlayWS();
+              } else {
+                zoomBoard({ unzoom: true, zoom: false });
+                endGame(`${window.opponent} won the match`);
+                playSound('lose');
+              }
+            }, 200);
+          }, 450);
+        }
+      }
+    }
+  }
 }

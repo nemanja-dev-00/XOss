@@ -87,6 +87,8 @@ body .wrapper-input-box input[type=number]::-webkit-outer-spin-button {
   margin: 0;
 }
 body .wrapper-input-box input[type=number] {
+  -webkit-appearance: textfield;
+          appearance: textfield;
   -moz-appearance: textfield;
 }
 body .wrapper-input-box .placehold-faker {
@@ -759,7 +761,7 @@ body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 {
   overflow: hidden;
   padding: 0 0.4rem;
 }
-body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .news,
+body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .friends,
 body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .guide {
   width: auto;
   height: 50%;
@@ -772,11 +774,11 @@ body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .guide {
   opacity: 0;
   will-change: transform;
 }
-body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .news:active,
+body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .friends:active,
 body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .guide:active {
   filter: brightness(0.7);
 }
-body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .news img,
+body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .friends img,
 body #app .gamemodes-grid .gamemodes-3 .gamemodes-3-1 .guide img {
   width: 55%;
   height: auto;
@@ -785,7 +787,7 @@ body #app .gamemodes-grid .gamemodes-3 .ltm {
   width: 100%;
   height: 100%;
   background-color: #c4c3aa;
-  border-radius: 2.5rem 1rem 2.5rem 2.5rem;
+  border-radius: 2.5rem 1rem 1rem 2.5rem;
   position: relative;
   transition: transform 0.75s cubic-bezier(0.84, 0, 0.17, 0.99), filter 0.1s;
   opacity: 0;
@@ -810,6 +812,30 @@ body #app .gamemodes-grid .gamemodes-3 .ltm h1 {
   left: 1.7rem;
   text-transform: uppercase;
   font-weight: 800;
+}
+body #app .gamemodes-grid .gamemodes-3 .ltm .ltm-badge {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  border-radius: 0.75rem;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.2rem 0.8rem;
+  border: 0.3rem solid #101010;
+  background: linear-gradient(to right, rgb(140, 115, 211), rgb(115, 129, 211)) 0% 0%/300% 300%;
+  animation: 3s ease 0s infinite normal none running ltmBg;
+}
+@keyframes ltmBg {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 0%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
 }
 body #settings {
   width: 100%;
@@ -1934,4 +1960,128 @@ body .inGameAlert p {
   color: #fff;
   opacity: 0.8;
   text-align: center;
+}
+body #chat {
+  width: 100vw;
+  height: 100dvh;
+  background-color: #808080;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  display: none;
+}
+body .quickmatchQueueTab {
+  width: 100vw;
+  height: 100dvh;
+  background-color: rgba(16, 16, 16, 0.9215686275);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  opacity: 0;
+  transition: 0.5s;
+}
+body .quickmatchQueueTab .status-wrapper {
+  color: #fff;
+  font-weight: 500;
+  opacity: 0.75;
+  text-align: center;
+  width: 80%;
+  max-width: 20rem;
+  display: flex;
+  flex-direction: column;
+  height: 1.5rem;
+  overflow: hidden;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+body .quickmatchQueueTab .status-wrapper .innerWrapper {
+  display: flex;
+  flex-direction: column;
+  transition: 1s cubic-bezier(0.84, 0, 0.17, 0.99);
+  opacity: 0.7;
+}
+body .quickmatchQueueTab .status-wrapper .innerWrapper p {
+  font-size: 1.1rem;
+  line-height: 1.5rem;
+}
+body .quickmatchQueueTab .exitQueue {
+  width: 85%;
+  max-width: 25rem;
+  padding: 1rem 2rem;
+  display: grid;
+  place-items: center;
+  color: #101010;
+  background-color: #2f2f2f;
+  font-weight: 700;
+  text-align: center;
+  font-size: 1.5rem;
+  position: absolute;
+  left: 50%;
+  bottom: 2rem;
+  transform: translateX(-50%);
+  border-radius: 10rem;
+  transition: 0.4s;
+}
+@keyframes fieldPulse {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+body #guideTab {
+  width: 100vw;
+  height: 100dvh;
+  background-color: #101010;
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  display: none;
+  transition: 0.4s;
+}
+body #guideTab .video {
+  aspect-ratio: 9/16;
+  width: 90%;
+  border: 1px solid rgba(118, 118, 118, 0.2039215686);
+  position: relative;
+  margin-top: 5dvh;
+  transition: 0.5s;
+  opacity: 0;
+}
+body #guideTab .exitGuide {
+  margin-top: 5dvh;
+  margin-bottom: 2rem;
+  width: 60%;
+  max-width: 25rem;
+  height: 5rem;
+  background-color: rgba(43, 43, 43, 0.6509803922);
+  color: rgba(255, 255, 255, 0.5450980392);
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+  font-weight: 600;
+  border-radius: 1rem;
+  transform: scale(0.85) translateY(1.5rem);
+  opacity: 0;
+  transition: 0.65s cubic-bezier(0.84, 0, 0.17, 0.99);
+}
+@media screen and (max-width: 670px) {
+  body #guideTab .exitGuide {
+    height: 4rem;
+  }
 }/*# sourceMappingURL=style.css.map */

@@ -193,8 +193,8 @@
         </div>
         <div class="gamemodes-3">
           <div class="gamemodes-3-1">
-            <div class="news" style="transform: translateX(-110%)">
-              <img src="./assets/news.svg" />
+            <div class="friends" style="transform: translateX(-110%)">
+              <img src="./assets/friends.svg" />
             </div>
             <div class="guide" style="transform: translateX(-110%)">
               <img src="./assets/guide.svg" />
@@ -203,6 +203,7 @@
           <div class="ltm" style="transform: translateX(110%)">
             <img src="./assets/ltm-blind-eyes.svg" />
             <h1>Blind Eyes</h1>
+            <div class="ltm-badge">LTM</div>
           </div>
         </div>
       </div>
@@ -275,6 +276,24 @@
                 <input
                   class="checkbox-input"
                   storedAs="lock_zoom"
+                  type="checkbox"
+                />
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="checkbox">
+              <p>SFX</p>
+              <label class="switch">
+                <input class="checkbox-input" storedAs="sfx" type="checkbox" />
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="checkbox">
+              <p>Music</p>
+              <label class="switch">
+                <input
+                  class="checkbox-input"
+                  storedAs="music"
                   type="checkbox"
                 />
                 <span class="slider round"></span>
@@ -589,6 +608,18 @@
       </div>
     </div>
 
+    <div id="chat">
+      <h1>Chat Room</h1>
+      <div id="messages"></div>
+      <input
+        type="text"
+        id="input"
+        autocomplete="off"
+        placeholder="Type a message..."
+      />
+      <button class="send">Send</button>
+    </div>
+
     <div class="waitingOverlay">
       <div class="container">
         <div class="line"></div>
@@ -610,6 +641,20 @@
           <p class="confirm-alert">Confirm</p>
         </div>
       </div>
+    </div>
+
+    <div class="quickmatchQueueTab">
+      <div class="status-wrapper">
+        <div class="innerWrapper">
+          <p style="opacity: 0">0</p>
+        </div>
+      </div>
+      <div class="exitQueue">Cancel</div>
+    </div>
+
+    <div id="guideTab">
+      <div class="video"></div>
+      <div class="exitGuide">Exit Guide</div>
     </div>
     <script src="https://unpkg.com/splitting/dist/splitting.min.js"></script>
     <script src="lib.min.js"></script>
